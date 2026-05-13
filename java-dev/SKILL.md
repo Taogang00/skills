@@ -38,7 +38,7 @@ description: Java开发代码规范与最佳实践指导。当用户涉及以下
 
 - 所有项目依赖版本必须统一由父级BOM进行管理，禁止子模块自行指定版本，禁止多版本依赖混用
 - 所有的类名保持统一风格的名称前缀，如系统管理模块，所有的类名都以Sys开头，如SysUser、SysUserController、SysUserService、SysUserServiceImpl、SysUserDTO、SysUserMapStruct、SysUserPageQuery
-- 所有的类名必须见名知意，简单的、随意的命名禁止使用，如用户的状态枚举`EnumState`，应该改为`EnumUserState`
+- 所有的类名必须见名知意，简单的、随意的命名禁止使用， 如`EnumState、UserInfo、DataDTO、CommonDTO`（过于宽泛），`EnumUserState、SysUserDetailDTO、OrderPageQuery`（体现模块+职责）
 - 所有数据库映射关系相关的模板代码禁止修改，如数据库表sys_user， 对应的SysUser.java， SysUserMapper.java， SysUserMapper.xml， SysUserService， SysUserServiceImpl.java， SysUserController.java， SysUserDTO.java， SysUserMapStruct.java， SysUserQuery.java 代码由通用代码生成器生成的，禁止做任何改动。
 - 所有数据库映射关系相关的模板代码禁止修改，如确需扩展逻辑，需要业务侧自定义新增扩展类，如只返回SysUserDTO中部分字段，新建SysUserSimpleDTO，只保留部分需要的字段；如需要返回更多字段，新建SysUserExDTO，继承SysUserDTO，添加返回更多字段
 - 所有Controller层只进行参数接收，参数校验，调用service，返回结果。禁止复杂的业务数据的处理，业务处理必须在service层进行
