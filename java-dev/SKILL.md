@@ -1,5 +1,5 @@
 ---
-name: javaweb-dev-guide
+name: java-dev-guide
 description: JavaWeb开发规范与代码优化指导skill。当用户涉及Java代码编写、审查、优化、重构，Spring Boot项目开发，RESTful API设计，命名规范检查，代码质量提升，阿里巴巴Java开发手册规范落地等任务时，必须使用此skill。触发场景包括：写Java类/方法/变量、设计REST接口、单元测试、审查代码规范、优化Spring Boot项目、处理异常、设计数据库字段命名、多线程编程、日志记录等一切Java后端开发相关任务。
 ---
 
