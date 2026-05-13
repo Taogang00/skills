@@ -10,7 +10,7 @@ description: Java开发代码规范与最佳实践指导。当用户涉及以下
 ---
 
 ## 一、技术栈
-### 1.1 常用的行业技术说明
+### 1.1 常用的行业技术说明 （版本信息需定期维护，以实际项目 pom 为准）
 - Java17+， 项目必须使用java17 以上版本进行编译构建
 - Maven 3.6.x， 构建项目使用maven3.6 以上版本
 - SpringBoot 3.5.x， 框架使用SpringBoot3.5 以上版本
@@ -272,6 +272,24 @@ public class AiProfileTagRequestDTO {
 }
 
 ```
+### 2.5 使用MapStruct进行实体和DTO之间的转换
+```java
+import com.guanwei.ai.dto.AiProfileRuleDTO;
+import com.guanwei.ai.dto.AiProfileRuleRequestDTO;
+import com.guanwei.ai.entity.AiProfileRule;
+import com.guanwei.mybatis.mapstruct.MybatisPageBaseConvertMapper;
+import org.mapstruct.Mapper;
+import org.mapstruct.ReportingPolicy;
+
+import static org.mapstruct.MappingConstants.ComponentModel.SPRING;
+import static org.mapstruct.NullValuePropertyMappingStrategy.IGNORE;
+
+// 请求体对象必须封装为XxxxDTO，并且根据数据库的字段要求添加必要的验证
+@Mapper(componentModel = SPRING, nullValuePropertyMappingStrategy = IGNORE, unmappedTargetPolicy = ReportingPolicy.IGNORE)
+public interface AiProfileRuleMapstruct extends MybatisPageBaseConvertMapper<AiProfileRuleDTO, AiProfileRule> {
+
+}
+```
 
 ## 三、命名规范
 
@@ -434,7 +452,7 @@ if (user.getStatus() == 1) { ... }
 if ("ADMIN".equals(user.getRole())) { ... }
 
 // ✅ 正确：使用枚举或常量
-if (user.getStatus() == UserStatusEnum.ACTIVE.getCode()) { ... }
+if (user.getStatus() == EnumUserStatus.ACTIVE.getCode()) { ... }
 if (UserRoleEnum.ADMIN.name().equals(user.getRole())) { ... }
 ```
 
