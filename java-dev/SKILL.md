@@ -1,6 +1,9 @@
 ---
 name: java-dev
 description: Java开发代码规范与最佳实践指导。当用户涉及以下任务时，必须使用此skill：编写Java类/接口/枚举、定义方法/变量/常量命名、审查或重构Java代码、设计RESTful API接口、开发Spring Boot项目、编写异常处理逻辑、编写单元测试代码、设计数据库字段与实体映射、编写多线程或并发代码、添加日志记录、进行代码质量提升。即使用户没有明确说"代码规范"，只要涉及Java代码编写或审查，都必须触发此skill。
+metadata:
+  version: 1.0.0
+  author: TaoGang
 ---
 
 # Java 开发代码规范
