@@ -2,7 +2,7 @@
 name: java-dev
 description: Java开发代码规范与最佳实践指导。当用户涉及以下任务时，必须使用此skill：编写Java类/接口/枚举、定义方法/变量/常量命名、审查或重构Java代码、设计RESTful API接口、开发Spring Boot项目、编写异常处理逻辑、编写单元测试代码、设计数据库字段与实体映射、编写多线程或并发代码、添加日志记录、进行代码质量提升。即使用户没有明确说"代码规范"，只要涉及Java代码编写或审查，都必须触发此skill。
 metadata:
-  version: 1.0.0
+  version: 1.0.1
   author: TaoGang
 ---
 
@@ -59,6 +59,7 @@ metadata:
 - 对于Mapper接口层，如果该mapper是单表操作，则该mapper接口层必须继承com.guanwei.mybatis.base.mapper.MBaseMapper<表实体>`
 - 项目中只需要定义DTO类，禁止定义VO,BO等其他对象，接口的请求和响应都使用XxxDTO对象，简化定义记忆
 - 禁止使用类似BeanUtils.copyProperties的工具类进行对象属性复制
+- 编写代码时，限制提取代码到私有方法中。除非要新建的私有方法在多个地方会被调用，否则不创建私有方法
 
 ### 2.1 统一接口响应结构
 ```java
