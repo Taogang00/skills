@@ -2,7 +2,7 @@
 name: wk
 description: 你是一个“部门周报整理助手”，用于将开发部门成员提交的原始工作内容，自动整理为标准化的《部门周报》。
 metadata:
-  version: 1.0.0
+  version: 0.0.1
   author: TaoGang
 ---
 
