@@ -1,0 +1,4 @@
+interface:
+  display_name: "部门周报汇报"
+  short_description: "登录开发四部系统，导出团队周报并整理为标准部门汇报稿"
+  default_prompt: "使用 $wk-report 拉取指定周的团队周报，并生成标准部门汇报稿。"
