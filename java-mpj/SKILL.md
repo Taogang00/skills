@@ -2,7 +2,7 @@
 name: java-mpj
 description: 将 MyBatis XML 中的简单单表/非聚合查询改写为 MyBatis-Plus-Join(MPJ) 的 Java Wrapper 写法，消除冗余 XML；复杂聚合类（group by/having/union/CTE 等）查询保留在 XML。当用户要求“去掉 mapper xml”“把 xml 查询改成 MPJ / MyBatisPlusJoin”“简化 mapper xml”“XML 转 Wrapper”“MPJ 改造”时使用。
 metadata:
-  version: 1.0.0
+  version: 1.0.1
   author: TaoGang
 ---
 
@@ -27,6 +27,61 @@ metadata:
 > 注意：分页基类是 `com.guanwei.mybatis.model.PageQuery`，不要误用其他同名类。以项目中已有 `XxxPageQuery` 的 import 为准。
 
 关键机制：`selectJoinPage(PageQuery, Class, wrapper)` **返回 `List`（实际 `PageList`）而非 `IPage`**。分页由拦截器完成，总数由 ResponseBodyAdvice 注入响应，业务代码不需要处理 total、不要手写 count 和 limit。
+
+### 前置约定 - 查询结果直接返回 DTO（强制重点）
+
+> **查询结果不要先返回 entity 再手动转成 dto。要什么 DTO，就把 DTO 的类型直接传给 MPJ 查询方法，让 MPJ 在查询时一步到位映射成 DTO 返回。**
+
+MPJ 的 `selectJoinList / selectJoinPage / selectJoinOne` 三个方法的**第二参数**就是返回结果的 DTO 类型。查询结果会由 MPJ **直接映射成 DTO 列表/对象返回**，业务代码**不需要也不允许**再有任何一步把 entity 转成 dto 的手动拷贝。典型正确写法：
+
+```java
+// 分页连表查询，直接返回 DTO 列表
+List<SaHolidayListDTO> list = saHolidayService.selectJoinPage(query, SaHolidayListDTO.class, lambdaQueryWrapper);
+
+// 非分页连表查询，直接返回 DTO 列表
+List<UserDTO> list = userMapper.selectJoinList(UserDTO.class, wrapper);
+
+// 单条查询，直接返回 DTO 对象
+UserStatisticsDTO dto = userMapper.selectJoinOne(UserStatisticsDTO.class, wrapper, false);
+```
+
+**严禁**在查询返回后再用 Bean 拷贝方式做 entity → dto 转换，例如：
+
+```java
+// ❌ 错误：先查出 entity，再用 BeanUtils.copyProperties 拷贝到 DTO
+List<User> users = userService.list(wrapper);
+List<UserDTO> list = new ArrayList<>();
+for (User u : users) {
+    UserDTO dto = new UserDTO();
+    BeanUtils.copyProperties(u, dto);   // 禁止使用
+    list.add(dto);
+}
+return list;
+```
+
+```java
+// ❌ 错误：连表查询后逐个拷贝，既冗余又易漏字段
+List<UserRole> rows = userRoleMapper.selectList(wrapper);
+return rows.stream().map(r -> {
+    UserDTO dto = new UserDTO();
+    org.springframework.beans.BeanUtils.copyProperties(r, dto);
+    return dto;
+}).collect(Collectors.toList());
+```
+
+正确做法，把目标 DTO 的 `Class` 直接传给 MPJ 方法即可，映射由框架完成：
+
+```java
+List<UserDTO> list = userService.selectJoinList(UserDTO.class, wrapper);   // ✅ 一行搞定，无手动拷贝
+```
+
+要点与边界：
+
+- **必须直接映射**：只要查询要返回 DTO，就把 `XxxDTO.class` 作为 `selectJoinList/selectJoinPage/selectJoinOne` 的第二参数传入，让 MPJ 完成字段映射。
+- **字段对齐仍靠 `selectAll` / `selectAs`**：DTO 能正确填充的前提是「结果集列名（驼峰属性名）与 DTO 属性名一致」，不一致时用 `selectAs(源字段, DTO::getXxx)` 对齐（详见示例 1.1）。**这不是 Bean 拷贝的替代方案，而是让 MPJ 直接映射生效的正确配置。**
+- **禁止的拷贝方式（不限于）**：`org.springframework.beans.BeanUtils#copyProperties`、`org.springframework.beans.BeanUtils#copyProperties(source, target, ignore)`、`cn.hutool.core.bean.BeanUtil#copyProperties`、手写逐字段 `setXxx(getXxx())` 的转换器、以及各种基于反射/手动 new DTO 再赋值的方式。
+- 若确实存在字段结构差异较大、无法通过 `selectAs` 表达的复杂转换，也应先按 MPJ 直接映射为主；确需额外组装时，尽量用 MPJ 的 `selectFunc`/`selectAs` 在 SQL 层完成，而不是查询后逐条拷贝。
+- 涉及 `BeanUtils`/`BeanUtil` 拷贝 DTO 的旧代码，在本次改造中一并替换为「直接传 DTO Class 给 MPJ」的写法。
 
 ## 二、改造范围判定
 
@@ -450,16 +505,18 @@ UserStatisticsDTO dto = userMapper.selectJoinOne(UserStatisticsDTO.class, wrappe
 
 ## 五、自检清单
 
-- [ ] `group by`/`having` 的分组统计是否仍留在 XML？
-- [ ] `leftJoin` 参数顺序是否为「从表字段在前，主表字段在后」？
-- [ ] `leftJoin` 的**过滤条件**是否写进 `on` 子句（lambda 形式），而非漏到 `where` 后面？（性能要点，见示例 4.1）
-- [ ] 每个 `<if>` 是否都转成 `xxIfExists` 系列方法（而非手写 `StrUtil.isNotBlank(...)` 之类的 boolean 首参）？
-- [ ] `and`/`or` 优先级是否保持？（`or` 混用需 `.and(w -> ...)` 包裹）
-- [ ] DTO 字段与 `selectAll`(驼峰属性名)/`selectAs` 目标是否一一对应，无遗漏？纯 `selectAll` 场景 DTO 字段是否与主表字段名一致，不一致的是否用 `selectAs` 显式对齐？
-- [ ] 分页是否走 `selectJoinPage(query, DTO.class, wrapper)`，未手写 count/limit？
-- [ ] 被删除的 `resultMap`/`<sql>` 是否确实无其他 statement 引用？
-- [ ] 所有调用点是否已同步更新？
-- [ ] 是否遵守 `java-dev` 规范：只用 DTO（不建 VO/BO）、不改代码生成器产出的模板代码？
+- [ ] `group by`/`having` 的分组统计仍留在 XML
+- [ ] `leftJoin` 参数顺序为「从表字段在前，主表字段在后」
+- [ ] `leftJoin` 的**过滤条件**已写进 `on` 子句（lambda 形式），未漏到 `where` 后面（性能要点，见示例 4.1）
+- [ ] 每个 `<if>` 已转成 `xxIfExists` 系列方法（未手写 `StrUtil.isNotBlank(...)` 之类的 boolean 首参）
+- [ ] `and`/`or` 优先级已保持（`or` 混用已用 `.and(w -> ...)` 包裹）
+- [ ] 查询已把 `XxxDTO.class` 直接传给 `selectJoinList/selectJoinPage/selectJoinOne`，由 MPJ 直接映射返回 DTO
+- [ ] 查询后**未**再用 `BeanUtils/BeanUtil.copyProperties` 做 entity → dto 拷贝
+- [ ] 查询后**未**手写逐字段 `setXxx(getXxx())` 转换，也**未**自写转换器（强制重点，见「一、前置约定」章节内「查询结果直接返回 DTO」小节）
+- [ ] 分页已走 `selectJoinPage(query, DTO.class, wrapper)`，未手写 count/limit
+- [ ] 被删除的 `resultMap`/`<sql>` 确实无其他 statement 引用
+- [ ] 所有调用点已同步更新
+- [ ] 已遵守 `java-dev` 规范：只用 DTO（不建 VO/BO）、不改代码生成器产出的模板代码
 
 ## 六、常见错误
 
