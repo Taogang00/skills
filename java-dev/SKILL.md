@@ -57,11 +57,26 @@ metadata:
 - 简单的单表，联表查询使用MybatisPlus+MybatisPlusJoin 实现即可，不需要自定义Mapper接口和写xml映射文件，减少冗余代码。
 - 对于Service接口层，如果该service是单表操作，则该service接口层必须继承`com.guanwei.mybatis.base.service.MBaseService<表实体>`，该service接口层必须实现`com.guanwei.mybatis.base.service.MBaseServiceImpl<表实体mapper，表实体>`中的方法。
 - 对于Mapper接口层，如果该mapper是单表操作，则该mapper接口层必须继承com.guanwei.mybatis.base.mapper.MBaseMapper<表实体>`
-- 项目中只需要定义DTO类，禁止定义VO,BO等其他对象，接口的请求使用XxxFormDTO，响应使用XxxViewDTO对象，简化定义记忆
-- 禁止使用类似BeanUtils.copyProperties的工具类进行对象属性复制
+- 项目中只需要定义DTO类，禁止定义VO,BO等其他对象，接口的请求使用XxxFormDTO，响应使用XxxViewDTO对象，简化定义记忆，更多参考 `FrmDTO 与 ViewDTO 约束` 这里
+- 禁止使用类似BeanUtils.copyProperties的工具类进行对象属性复制，更多参考 `FrmDTO 与 ViewDTO 约束` 这里
 - 编写代码时，限制提取代码到私有方法中。除非要新建的私有方法在多个地方会被调用，否则不创建私有方法
 
-### 2.1 统一接口响应结构
+### 2.1 FormDTO 与 ViewDTO 约束
+
+- `XxxFormDTO`：仅用于Controller层接收前端提交的请求体数据，表示表单输入对象。所有POST请求中需要通过`@RequestBody`接收的业务请求对象，必须使用`XxxFormDTO`命名。
+- `XxxViewDTO`：仅用于Controller层向前端返回业务展示数据，表示前端查看、展示所需的数据对象。所有Controller层返回的业务数据必须使用`XxxViewDTO`或其集合、分页结构作为数据类型，禁止直接返回Entity。
+- `XxxFormDTO`主要描述“前端提交什么数据”，字段以接口实际需要接收的数据为准，不要求与数据库Entity字段完全一致；禁止为了与Entity保持一致而无意义地复制全部字段。
+- `XxxViewDTO`主要描述“前端需要看到什么数据”，字段以接口实际展示需求为准，不要求与数据库Entity字段完全一致；禁止直接将Entity作为`XxxViewDTO`的替代品。
+- `XxxFormDTO`与`XxxViewDTO`职责必须严格分离，禁止为了复用字段而将同一个DTO同时作为请求参数和响应结果使用。
+- `XxxViewDTO`可以根据前端不同展示场景进行扩展，例如`XxxSimpleViewDTO`、`XxxDetailViewDTO`、`XxxExViewDTO`，但必须保持以`ViewDTO`结尾。
+- `XxxFormDTO`中的字段必须根据业务及参数要求添加必要的校验注解，并配合Controller层的`@Validated`进行参数校验。
+- 创建和修改场景，如果请求字段、校验规则或业务语义存在明显差异，应分别定义`XxxCreateFormDTO`和`XxxUpdateFormDTO`，禁止为了减少DTO数量而强行复用同一个FormDTO。
+- 查询条件不属于表单提交对象，查询接口优先使用`XxxQuery`或分页场景使用`XxxPageQuery`，不要为了统一命名而全部使用`XxxFormDTO`。
+- DTO之间禁止通过继承关系强行复用业务字段来规避对象定义；只有在字段和业务语义确实存在明确的“基础对象+扩展对象”关系时，才允许使用继承。
+- Entity、FormDTO、ViewDTO之间的对象转换统一使用MapStruct完成，禁止使用`BeanUtils.copyProperties`等反射式属性复制工具。
+
+
+### 2.2 统一接口响应结构
 ```java
 @SuppressWarnings("unused")
 @Data
@@ -152,7 +167,7 @@ public class R<T> implements Serializable {
 
 ```
 
-### 2.2 Controller层示例方法
+### 2.3 Controller层示例方法
 ```java
 // 分页查询，使用MybatisPlusJoin来，框架已经处理好分页返回体，AiProfileTagPageQuery 需要继承PageQuery
 @GetMapping("/list")
@@ -199,7 +214,7 @@ public R<Boolean> delete(@PathVariable String id) {
 
 ```
 
-### 2.3 联表查询，使用MybatisPlusJoin实现的示例
+### 2.4 联表查询，使用MybatisPlusJoin实现的示例
 ```java
 // 较复杂的一对多查询，使用MybatisPlusJoin实现
 public R<?> getSaSccInfo(@RequestParam String serAreaCode) {
@@ -237,7 +252,7 @@ public R<?> getSaSccInfo(@RequestParam String serAreaCode) {
     return R.OK(list);
 }
 ```
-### 2.4 参数校验
+### 2.5 参数校验
 ```java
 // 请求体对象必须封装为XxxxFormDTO，并且根据数据库的字段要求添加必要的验证
 @Data
@@ -276,7 +291,7 @@ public class AiProfileTagFormDTO {
 }
 
 ```
-### 2.5 使用MapStruct进行实体和DTO之间的转换
+### 2.6 使用MapStruct进行实体和DTO之间的转换
 ```java
 import com.guanwei.ai.dto.AiProfileRuleFormDTO;
 import com.guanwei.ai.dto.AiProfileRuleRequestDTO;
