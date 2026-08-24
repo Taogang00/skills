@@ -2,7 +2,7 @@
 name: java-dev
 description: Java开发代码规范与最佳实践指导。当用户涉及以下任务时，必须使用此skill：编写Java类/接口/枚举、定义方法/变量/常量命名、审查或重构Java代码、设计RESTful API接口、开发Spring Boot项目、编写异常处理逻辑、编写单元测试代码、设计数据库字段与实体映射、编写多线程或并发代码、添加日志记录、进行代码质量提升。即使用户没有明确说"代码规范"，只要涉及Java代码编写或审查，都必须触发此skill。
 metadata:
-  version: 1.0.1
+  version: 1.0.2
   author: TaoGang
 ---
 
@@ -40,10 +40,10 @@ metadata:
 ## 二、一级军规
 
 - 所有项目依赖版本必须统一由父级BOM进行管理，禁止子模块自行指定版本，禁止多版本依赖混用
-- 所有的类名保持统一风格的名称前缀，如系统管理模块，所有的类名都以Sys开头，如SysUser、SysUserController、SysUserService、SysUserServiceImpl、SysUserDTO、SysUserMapStruct、SysUserPageQuery
+- 所有的类名保持统一风格的名称前缀，如系统管理模块，所有的类名都以Sys开头，如SysUser、SysUserController、SysUserService、SysUserServiceImpl、SysUserViewDTO、SysUserMapStruct、SysUserPageQuery
 - 所有的类名必须见名知意，简单的、随意的命名禁止使用， 如`EnumState、UserInfo、DataDTO、CommonDTO`（过于宽泛），`EnumUserState、SysUserDetailDTO、OrderPageQuery`（体现模块+职责）
-- 所有数据库映射关系相关的模板代码禁止修改，如数据库表sys_user， 对应的SysUser.java， SysUserMapper.java， SysUserMapper.xml， SysUserService， SysUserServiceImpl.java， SysUserController.java， SysUserDTO.java， SysUserMapStruct.java， SysUserQuery.java 代码由通用代码生成器生成的，禁止做任何改动。
-- 所有数据库映射关系相关的模板代码禁止修改，如确需扩展逻辑，需要业务侧自定义新增扩展类，如只返回SysUserDTO中部分字段，新建SysUserSimpleDTO，只保留部分需要的字段；如需要返回更多字段，新建SysUserExDTO，继承SysUserDTO，添加返回更多字段
+- 所有数据库映射关系相关的模板代码禁止修改，如数据库表sys_user， 对应的SysUser.java， SysUserMapper.java， SysUserMapper.xml， SysUserService， SysUserServiceImpl.java， SysUserController.java， SysUserViewDTO.java， SysUserMapStruct.java， SysUserQuery.java 代码由通用代码生成器生成的，禁止做任何改动。
+- 所有数据库映射关系相关的模板代码禁止修改，如确需扩展逻辑，需要业务侧自定义新增扩展类，如只返回SysUserDTO中部分字段，新建SysUserSimpleViewDTO，只保留部分需要的字段；如需要返回更多字段，新建SysUserExViewDTO，继承SysUserDTO，添加返回更多字段
 - 所有Controller层只进行参数接收，参数校验，调用service，返回结果。禁止复杂的业务数据的处理，业务处理必须在service层进行
 - 所有Controller层禁止直接调用数据库Mapper接口进行数据库操作，如果有需要重构改造，将业务处理放到service层。
 - 所有Controller层使用统一的返回体类`com.guanwei.core.utils.result.R<?>`，如果同时明确了返回体类型，需要补充R返回体中的数据类型。
@@ -57,7 +57,7 @@ metadata:
 - 简单的单表，联表查询使用MybatisPlus+MybatisPlusJoin 实现即可，不需要自定义Mapper接口和写xml映射文件，减少冗余代码。
 - 对于Service接口层，如果该service是单表操作，则该service接口层必须继承`com.guanwei.mybatis.base.service.MBaseService<表实体>`，该service接口层必须实现`com.guanwei.mybatis.base.service.MBaseServiceImpl<表实体mapper，表实体>`中的方法。
 - 对于Mapper接口层，如果该mapper是单表操作，则该mapper接口层必须继承com.guanwei.mybatis.base.mapper.MBaseMapper<表实体>`
-- 项目中只需要定义DTO类，禁止定义VO,BO等其他对象，接口的请求和响应都使用XxxDTO对象，简化定义记忆
+- 项目中只需要定义DTO类，禁止定义VO,BO等其他对象，接口的请求使用XxxFormDTO，响应使用XxxViewDTO对象，简化定义记忆
 - 禁止使用类似BeanUtils.copyProperties的工具类进行对象属性复制
 - 编写代码时，限制提取代码到私有方法中。除非要新建的私有方法在多个地方会被调用，否则不创建私有方法
 
@@ -167,13 +167,13 @@ public R<?> list(@Validated AiProfileTagPageQuery query) {
     lambdaQueryWrapper.likeIfExists(AiProfileTag::getTagDefVal, query.getTagDefVal());
     lambdaQueryWrapper.likeIfExists(AiProfileTag::getPrId, query.getPrId());
     lambdaQueryWrapper.orderByAsc(AiProfileTag::getOrderNo);
-    List<AiProfileTagDTO> list = aiProfileTagService.selectJoinPage(query, AiProfileTagDTO.class, lambdaQueryWrapper);
+    List<AiProfileTagViewDTO> list = aiProfileTagService.selectJoinPage(query, AiProfileTagViewDTO.class, lambdaQueryWrapper);
     return R.OK(list);
 }
 
 // 新增一条记录，必须使用POST方法，必须添加@Validated注解
 @PostMapping
-public R<Boolean> add(@Validated @RequestBody AiProfileTagRequestDTO dto) {
+public R<Boolean> add(@Validated @RequestBody AiProfileTagFormDTO dto) {
     AiProfileTag entity = aiProfileTagMapstruct.toSource(dto);
     entity.setCreateTime(new Date());
     entity.setModifyTime(new Date());
@@ -183,7 +183,7 @@ public R<Boolean> add(@Validated @RequestBody AiProfileTagRequestDTO dto) {
 
 // 更新一条记录，使用POST方法，必须添加@Validated注解 
 @PostMapping("/edit/{id}")
-public R<?> update(@PathVariable String id, @Validated @RequestBody AiProfileTagRequestDTO dto) {
+public R<?> update(@PathVariable String id, @Validated @RequestBody AiProfileTagFormDTO dto) {
     Assert.notNull(id, "主键标识不能为空！");
     AiProfileTag entity = aiProfileTagMapstruct.toSource(dto);
     entity.setModifyTime(new Date());
@@ -239,9 +239,9 @@ public R<?> getSaSccInfo(@RequestParam String serAreaCode) {
 ```
 ### 2.4 参数校验
 ```java
-// 请求体对象必须封装为XxxxDTO，并且根据数据库的字段要求添加必要的验证
+// 请求体对象必须封装为XxxxFormDTO，并且根据数据库的字段要求添加必要的验证
 @Data
-public class AiProfileTagRequestDTO {
+public class AiProfileTagFormDTO {
 
     /**
      * 标签Id（编辑时必填）
@@ -278,7 +278,7 @@ public class AiProfileTagRequestDTO {
 ```
 ### 2.5 使用MapStruct进行实体和DTO之间的转换
 ```java
-import com.guanwei.ai.dto.AiProfileRuleDTO;
+import com.guanwei.ai.dto.AiProfileRuleFormDTO;
 import com.guanwei.ai.dto.AiProfileRuleRequestDTO;
 import com.guanwei.ai.entity.AiProfileRule;
 import com.guanwei.mybatis.mapstruct.MybatisPageBaseConvertMapper;
@@ -288,9 +288,9 @@ import org.mapstruct.ReportingPolicy;
 import static org.mapstruct.MappingConstants.ComponentModel.SPRING;
 import static org.mapstruct.NullValuePropertyMappingStrategy.IGNORE;
 
-// 请求体对象必须封装为XxxxDTO，并且根据数据库的字段要求添加必要的验证
+// 请求体对象必须封装为XxxxFormDTO，并且根据数据库的字段要求添加必要的验证
 @Mapper(componentModel = SPRING, nullValuePropertyMappingStrategy = IGNORE, unmappedTargetPolicy = ReportingPolicy.IGNORE)
-public interface AiProfileRuleMapstruct extends MybatisPageBaseConvertMapper<AiProfileRuleDTO, AiProfileRule> {
+public interface AiProfileRuleMapstruct extends MybatisPageBaseConvertMapper<AiProfileRuleFormDTO, AiProfileRule> {
 
 }
 ```
@@ -417,7 +417,7 @@ public class OrderService {
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class UserDTO {
+public class UserViewDTO {
     private Long id;
     private String username;
     private String email;
