@@ -1,22 +1,30 @@
 ---
 name: java-dev
-description: Java开发代码规范与最佳实践指导。当用户涉及以下任务时，必须使用此skill：编写Java类/接口/枚举、定义方法/变量/常量命名、审查或重构Java代码、设计RESTful API接口、开发Spring Boot项目、编写异常处理逻辑、编写单元测试代码、设计数据库字段与实体映射、编写多线程或并发代码、添加日志记录、进行代码质量提升。即使用户没有明确说"代码规范"，只要涉及Java代码编写或审查，都必须触发此skill。
+description: 为 Guanwei Java/Spring Boot 后端项目提供代码编写、重构和审查规范。项目使用 guanwei-* Starter、com.guanwei 包名，或用户明确要求遵循本规范时使用。普通 Java 教学、非 Guanwei 项目及其他技术栈不应套用公司专属约定。
 metadata:
-  version: 1.0.2
+  version: 1.0.3
   author: TaoGang
 ---
 
 # Java 开发代码规范
 
-本规范基于业界主流最佳实践加上开发者公司约定开发规范整合而成，适用于开发者公司所有Java后端项目。
+本规范整合 Java 通用实践与 Guanwei 公司约定，适用于能够通过 `guanwei-*` Starter、`com.guanwei` 包名或用户说明识别出的 Guanwei Java 后端项目。
+
+执行规则时，按以下顺序判断：
+
+1. 用户对当前任务的明确要求。
+2. 当前项目的 `pom.xml`、父级 BOM、已有代码结构和同模块惯例。
+3. 本规范中的公司约定。
+
+开始编写或修改代码前，先检查项目实际技术栈和相邻实现。项目现状与本文版本示例不一致时，以项目实际配置为准，并向用户说明有实质影响的差异。
 
 ---
 
 ## 一、技术栈
-### 1.1 常用的行业技术说明 （版本信息需定期维护，以实际项目 pom 为准）
-- Java17+， 项目必须使用java17 以上版本进行编译构建
-- Maven 3.6.x， 构建项目使用maven3.6 以上版本
-- SpringBoot 3.5.x， 框架使用SpringBoot3.5 以上版本
+### 1.1 常用技术栈（新项目默认值，已有项目以实际 `pom.xml` 和父级 BOM 为准）
+- Java 17+
+- Maven 3.6+
+- Spring Boot 3.5+
 - MyBatisPlus 3.5.16， 数据库的ORM
 - MyBatisPlusJoin 1.5.7， 多表关联查询，对MyBatisPlus联表查询增强框架，文档：https://mybatis-plus-join.github.io/pages/quickstart/quickstart.html
 - FastJson2， 用于springboot接口消息转换
@@ -42,24 +50,23 @@ metadata:
 - 所有项目依赖版本必须统一由父级BOM进行管理，禁止子模块自行指定版本，禁止多版本依赖混用
 - 所有的类名保持统一风格的名称前缀，如系统管理模块，所有的类名都以Sys开头，如SysUser、SysUserController、SysUserService、SysUserServiceImpl、SysUserViewDTO、SysUserMapStruct、SysUserPageQuery
 - 所有的类名必须见名知意，简单的、随意的命名禁止使用， 如`EnumState、UserInfo、DataDTO、CommonDTO`（过于宽泛），`EnumUserState、SysUserDetailDTO、OrderPageQuery`（体现模块+职责）
-- 所有数据库映射关系相关的模板代码禁止修改，如数据库表sys_user， 对应的SysUser.java， SysUserMapper.java， SysUserMapper.xml， SysUserService， SysUserServiceImpl.java， SysUserController.java， SysUserViewDTO.java， SysUserMapStruct.java， SysUserQuery.java 代码由通用代码生成器生成的，禁止做任何改动。
-- 所有数据库映射关系相关的模板代码禁止修改，如确需扩展逻辑，需要业务侧自定义新增扩展类，如只返回SysUserDTO中部分字段，新建SysUserSimpleViewDTO，只保留部分需要的字段；如需要返回更多字段，新建SysUserExViewDTO，继承SysUserDTO，添加返回更多字段
+- 仅当文件包含明确的代码生成标记、项目文档说明其由生成器维护，或用户明确确认时，才将其视为不可直接修改的生成文件。需要扩展时使用项目已有的扩展点或新增业务侧扩展类；无法判断是否为生成文件时，先检查生成配置或询问用户。
 - 所有Controller层只进行参数接收，参数校验，调用service，返回结果。禁止复杂的业务数据的处理，业务处理必须在service层进行
 - 所有Controller层禁止直接调用数据库Mapper接口进行数据库操作，如果有需要重构改造，将业务处理放到service层。
-- 所有Controller层使用统一的返回体类`com.guanwei.core.utils.result.R<?>`，如果同时明确了返回体类型，需要补充R返回体中的数据类型。
+- 所有Controller层使用统一的返回体类`com.guanwei.core.utils.result.R<T>`，`T`必须填写明确的业务数据类型；无响应数据时使用`R<Void>`，禁止使用`R<?>`。
 - 所有Controller层中只能使用`GET`和`POST` 两种请求方式，不允许使用`PUT`、`DELETE`、`PATCH`、`OPTIONS`、`HEAD`、`TRACE`等。
-- 所有Controller层方法参数禁止使用`Map<String，Object> 、JSONObject、JsonNode、ObjectNode等弱类型对象作为请求参数接收体`，必须使用DTO请求体对象，请求体对象必须添加必要的校验参数注解，参数对象必须使用`@Validated`注解进行参数校验。
-- 所有Controller层方法返回的数据类型必须是定义明确的类型，禁止使用`Object`、`Map<String，Object>`等类型。
+- 所有Controller层方法参数禁止使用`Map<String, Object>`、`JSONObject`、`JsonNode`、`ObjectNode`等弱类型对象作为请求参数接收体，必须使用DTO请求体对象。请求体对象必须添加必要的校验注解，并使用`@Validated`触发参数校验。
+- 所有Controller层方法返回的数据类型必须明确，禁止使用`Object`、`Map<String, Object>`等弱类型。
 - 所有Controller层分页接口，接口的参数必须继承`com.guanwei.core.utils.page.PageQuery`，类名使用类似XxxPageQuery，体现分页的职能。
 - 所有Controller层禁止直接返回数据库Entity对象，Controller层必须使用DTO对象作为返回体。
-- 所有非Controller层、Feign中定义的方法以外，禁止使用`com.guanwei.core.utils.result.R<?>`作为函数方法的返回体。
+- 除Controller层和Feign接口外，其他方法禁止使用`com.guanwei.core.utils.result.R<T>`作为返回体，应直接返回明确的领域类型。
 - 所有的分页查询对象必须继承`com.guanwei.core.utils.page.PageQuery`，类名使用类似XxxPageQuery，体现该类分页的职能。
 - 简单的单表，联表查询使用MybatisPlus+MybatisPlusJoin 实现即可，不需要自定义Mapper接口和写xml映射文件，减少冗余代码。
-- 对于Service接口层，如果该service是单表操作，则该service接口层必须继承`com.guanwei.mybatis.base.service.MBaseService<表实体>`，该service接口层必须实现`com.guanwei.mybatis.base.service.MBaseServiceImpl<表实体mapper，表实体>`中的方法。
-- 对于Mapper接口层，如果该mapper是单表操作，则该mapper接口层必须继承com.guanwei.mybatis.base.mapper.MBaseMapper<表实体>`
-- 项目中只需要定义DTO类，禁止定义VO,BO等其他对象，接口的请求使用XxxFormDTO，响应使用XxxViewDTO对象，简化定义记忆，更多参考 `FrmDTO 与 ViewDTO 约束` 这里
-- 禁止使用类似BeanUtils.copyProperties的工具类进行对象属性复制，更多参考 `FrmDTO 与 ViewDTO 约束` 这里
-- 编写代码时，限制提取代码到私有方法中。除非要新建的私有方法在多个地方会被调用，否则不创建私有方法
+- 对于单表操作，Service接口继承`com.guanwei.mybatis.base.service.MBaseService<Entity>`；对应实现类继承`com.guanwei.mybatis.base.service.MBaseServiceImpl<Mapper, Entity>`并实现该Service接口。
+- 对于单表操作，Mapper接口继承`com.guanwei.mybatis.base.mapper.MBaseMapper<Entity>`。
+- 项目中只需要定义DTO类，禁止定义VO、BO等其他对象；接口请求使用`XxxFormDTO`，响应使用`XxxViewDTO`，具体约束见下文“FormDTO 与 ViewDTO 约束”。
+- 禁止使用`BeanUtils.copyProperties`等反射式工具复制对象属性，具体约束见下文“FormDTO 与 ViewDTO 约束”。
+- 当一段代码具有独立业务语义、需要隔离复杂度或便于单元测试时，可以提取为私有方法；不要仅为减少行数而机械拆分。
 
 ### 2.1 FormDTO 与 ViewDTO 约束
 
@@ -169,40 +176,23 @@ public class R<T> implements Serializable {
 
 ### 2.3 Controller层示例方法
 ```java
-// 分页查询，使用MybatisPlusJoin来，框架已经处理好分页返回体，AiProfileTagPageQuery 需要继承PageQuery
+// Controller只负责参数接收、校验、调用Service和封装响应
 @GetMapping("/list")
-public R<?> list(@Validated AiProfileTagPageQuery query) {
-    MPJLambdaWrapper<AiProfileTag> lambdaQueryWrapper = JoinWrappers.lambda(AiProfileTag.class);
-    lambdaQueryWrapper.selectAll(AiProfileTag.class);
-    lambdaQueryWrapper.eqIfExists(AiProfileTag::getCreateTime, query.getCreateTime());
-    lambdaQueryWrapper.eqIfExists(AiProfileTag::getModifyTime, query.getModifyTime());
-    lambdaQueryWrapper.likeIfExists(AiProfileTag::getPtId, query.getPtId());
-    lambdaQueryWrapper.likeIfExists(AiProfileTag::getTagName, query.getTagName());
-    lambdaQueryWrapper.likeIfExists(AiProfileTag::getTagDes, query.getTagDes());
-    lambdaQueryWrapper.likeIfExists(AiProfileTag::getTagDefVal, query.getTagDefVal());
-    lambdaQueryWrapper.likeIfExists(AiProfileTag::getPrId, query.getPrId());
-    lambdaQueryWrapper.orderByAsc(AiProfileTag::getOrderNo);
-    List<AiProfileTagViewDTO> list = aiProfileTagService.selectJoinPage(query, AiProfileTagViewDTO.class, lambdaQueryWrapper);
-    return R.OK(list);
+public R<List<AiProfileTagViewDTO>> list(@Validated AiProfileTagPageQuery query) {
+    return R.OK(aiProfileTagService.listPage(query));
 }
 
 // 新增一条记录，必须使用POST方法，必须添加@Validated注解
 @PostMapping
-public R<Boolean> add(@Validated @RequestBody AiProfileTagFormDTO dto) {
-    AiProfileTag entity = aiProfileTagMapstruct.toSource(dto);
-    entity.setCreateTime(new Date());
-    entity.setModifyTime(new Date());
-    boolean save = aiProfileTagService.save(entity);
-    return R.OK(save);
+public R<Boolean> add(@Validated @RequestBody AiProfileTagCreateFormDTO dto) {
+    return R.OK(aiProfileTagService.add(dto));
 }
 
 // 更新一条记录，使用POST方法，必须添加@Validated注解 
 @PostMapping("/edit/{id}")
-public R<?> update(@PathVariable String id, @Validated @RequestBody AiProfileTagFormDTO dto) {
-    Assert.notNull(id, "主键标识不能为空！");
-    AiProfileTag entity = aiProfileTagMapstruct.toSource(dto);
-    entity.setModifyTime(new Date());
-    aiProfileTagService.update(entity);
+public R<Void> update(@PathVariable String id, @Validated @RequestBody AiProfileTagUpdateFormDTO dto) {
+    Assert.hasText(id, "主键标识不能为空！");
+    aiProfileTagService.update(id, dto);
     return R.OK();
 }
 
@@ -216,8 +206,8 @@ public R<Boolean> delete(@PathVariable String id) {
 
 ### 2.4 联表查询，使用MybatisPlusJoin实现的示例
 ```java
-// 较复杂的一对多查询，使用MybatisPlusJoin实现
-public R<?> getSaSccInfo(@RequestParam String serAreaCode) {
+// Service层中较复杂的一对多查询，使用MybatisPlusJoin实现
+public List<SaSscChargeStationViewDTO> getSaSccInfo(String serAreaCode) {
     MPJLambdaWrapper<SaSscChargeStation> wrapper = new MPJLambdaWrapper<>(SaSscChargeStation.class)
             .selectAs(SaSscChargeStation::getStationId, SaSscChargeStationViewDTO::getStationId)
             //服务区_随手查_运营商
@@ -248,40 +238,33 @@ public R<?> getSaSccInfo(@RequestParam String serAreaCode) {
             .leftJoin(SaSscChargeConnector.class, SaSscChargeConnector::getEquipmentId, SaSscChargeEquipment::getEquipmentId)
             .leftJoin(SaSscChargeConnectorPolicy.class, SaSscChargeConnectorPolicy::getConnectorId, SaSscChargeConnector::getConnectorId)
             .eq(SaSscChargeStation::getSerAreaCode, serAreaCode);
-    List<SaSscChargeStationViewDTO> list = saSscChargeStationService.selectJoinList(SaSscChargeStationViewDTO.class, wrapper);
-    return R.OK(list);
+    return selectJoinList(SaSscChargeStationViewDTO.class, wrapper);
 }
 ```
 ### 2.5 参数校验
 ```java
-// 请求体对象必须封装为XxxxFormDTO，并且根据数据库的字段要求添加必要的验证
+// 新增和修改语义不同时分别定义CreateFormDTO与UpdateFormDTO
 @Data
-public class AiProfileTagFormDTO {
-
-    /**
-     * 标签Id（编辑时必填）
-     */
-    @Length(max = 32, message = "标签Id：【${validatedValue}】长度不能超过32位")
-    private String ptId;
+public class AiProfileTagCreateFormDTO {
 
     /**
      * 标签名称
      */
-    @NotNull(message = "标签名称不能为空！")
-    @Length(max = 100, message = "标签名称：【${validatedValue}】长度不能超过100位")
+    @NotBlank(message = "标签名称不能为空！")
+    @Length(max = 100, message = "标签名称长度不能超过100位")
     private String tagName;
 
     /**
      * 标签描述
      */
-    @NotNull(message = "标签描述不能为空！")
-    @Length(max = 200, message = "标签描述：【${validatedValue}】长度不能超过200位")
+    @NotBlank(message = "标签描述不能为空！")
+    @Length(max = 200, message = "标签描述长度不能超过200位")
     private String tagDes;
 
     /**
      * 标签初始值
      */
-    @Length(max = 10, message = "标签初始值：【${validatedValue}】长度不能超过10位")
+    @Length(max = 10, message = "标签初始值长度不能超过10位")
     private String tagDefVal;
 
     /**
@@ -294,7 +277,6 @@ public class AiProfileTagFormDTO {
 ### 2.6 使用MapStruct进行实体和DTO之间的转换
 ```java
 import com.guanwei.ai.dto.AiProfileRuleFormDTO;
-import com.guanwei.ai.dto.AiProfileRuleRequestDTO;
 import com.guanwei.ai.entity.AiProfileRule;
 import com.guanwei.mybatis.mapstruct.MybatisPageBaseConvertMapper;
 import org.mapstruct.Mapper;
@@ -304,7 +286,7 @@ import static org.mapstruct.MappingConstants.ComponentModel.SPRING;
 import static org.mapstruct.NullValuePropertyMappingStrategy.IGNORE;
 
 // 请求体对象必须封装为XxxxFormDTO，并且根据数据库的字段要求添加必要的验证
-@Mapper(componentModel = SPRING, nullValuePropertyMappingStrategy = IGNORE, unmappedTargetPolicy = ReportingPolicy.IGNORE)
+@Mapper(componentModel = SPRING, nullValuePropertyMappingStrategy = IGNORE, unmappedTargetPolicy = ReportingPolicy.ERROR)
 public interface AiProfileRuleMapstruct extends MybatisPageBaseConvertMapper<AiProfileRuleFormDTO, AiProfileRule> {
 
 }
@@ -325,7 +307,7 @@ public interface AiProfileRuleMapstruct extends MybatisPageBaseConvertMapper<AiP
 | 异常类 | 以 `Exception` 结尾 | `BusinessException`、`DataNotFoundException` |
 | 测试类 | 以 `Test` 结尾 | `UserServiceTest`                           |
 | 接口 | UpperCamelCase，不加 `I` 前缀 | `UserRepository`（Spring Data风格）             |
-| 枚举类 | UpperCamelCase | `EnumOrderStatus`,使用`Enum`前缀                |
+| 枚举类 | `Enum`前缀 + UpperCamelCase | `EnumOrderStatus`              |
 | 实现类 | 接口名 + `Impl` | `UserServiceImpl`                           |
 
 ### 3.3 方法
@@ -364,7 +346,7 @@ String user_name = "Tom";  // 变量不应使用下划线
 ```
 
 ### 3.5 包名
-- 全小写，点分隔，禁止使用复数形式。
+- 全小写并使用点分隔；单复数形式遵循项目现有包结构，避免同一概念混用两种形式。
 - 结构建议：`com.公司名.项目名.模块名.层级`
 
 ```
@@ -408,7 +390,7 @@ public class OrderService {
      * @return 订单列表，若无数据返回空列表（不返回null）
      * @throws BusinessException 当用户不存在时抛出
      */
-    public List<Order> getOrdersByUserId(Long userId, OrderStatusEnum status) {
+    public List<Order> getOrdersByUserId(Long userId, EnumOrderStatus status) {
         // 单行注释：解释为什么，而不是解释做什么
         // 此处过滤已删除的订单，逻辑删除字段 deleted=1 表示已删除
         return orderRepository.findByUserIdAndStatus(userId, status);
@@ -472,7 +454,7 @@ if ("ADMIN".equals(user.getRole())) { ... }
 
 // ✅ 正确：使用枚举或常量
 if (user.getStatus() == EnumUserStatus.ACTIVE.getCode()) { ... }
-if (UserRoleEnum.ADMIN.name().equals(user.getRole())) { ... }
+if (EnumUserRole.ADMIN.name().equals(user.getRole())) { ... }
 ```
 
 ---
@@ -555,7 +537,10 @@ public class OrderService {
         log.info("开始处理订单, orderId={}", orderId);
 
         // ✅ 日志分级使用
-        log.debug("订单详情: {}", JSON.toJSONString(order));   // 开发调试
+        // 序列化对象前先判断日志级别，并确保对象中不含密码、Token等敏感字段
+        if (log.isDebugEnabled()) {
+            log.debug("订单详情: {}", JSON.toJSONString(order));
+        }
         log.info("订单状态变更: {} -> {}", oldStatus, newStatus); // 关键业务流程
         log.warn("库存不足，降级处理: productId={}", productId);    // 警告，不影响主流程
         log.error("订单支付失败: orderId={}", orderId, e);          // 错误，须传入异常对象
@@ -596,7 +581,9 @@ log.info("支付信息: cardNo={}", cardNo); // 银行卡号禁止输出
 - [ ] 满足一级军规
 - [ ] 所有外部输入均有校验
 - [ ] 集合参数/返回值已做空判断，不返回 `null`
-- [ ] 异常均有捕获处理，无空catch块
+- [ ] 仅在能够恢复、转换异常或补充必要上下文时捕获异常
+- [ ] 未吞掉异常，未在多个层级重复记录同一异常
+- [ ] 可统一处理的异常交由全局异常处理器
 - [ ] 资源（IO、连接）已在 `finally` 或 `try-with-resources` 中关闭
 
 **性能**
@@ -621,15 +608,15 @@ log.info("支付信息: cardNo={}", cardNo); // 银行卡号禁止输出
 
 ## 九、快速参考
 
-| 场景      | 推荐方案                                                 |
-|---------|------------------------------------------------------|
-| 金额计算    | `BigDecimal`，禁用 `double`/`float`                     |
-| 字符串判空   | `EmptyUtil.isNotEmpty()`，禁用 `== null \|\| isEmpty()` |
-| 集合判空    | `EmptyUtil.isEmpty()`，禁用 `== null \|\| size() == 0`  |
-| JSON序列化 | `Fastjson2`（统一项目内使用同一框架）                             |
+| 场景      | 推荐方案                                                        |
+|---------|-----------------------------------------------------------------|
+| 金额计算    | `BigDecimal`，禁用 `double`/`float`                             |
+| 字符串判空   | `EmptyUtil.isNotEmpty()`，禁用 `== null \|\| isEmpty()`         |
+| 集合判空    | `EmptyUtil.isEmpty()`，禁用 `== null \|\| size() == 0`          |
+| JSON序列化 | `Fastjson2`（统一项目内使用同一框架）                           |
 | HTTP客户端 | `RestTemplate`（同步）/ `WebClient`（响应式/异步）              |
-| 对象拷贝    | `MapStruct`（推荐，类型安全）                                 |
-| 唯一ID生成  | 雪花算法 / `UUID.randomUUID()` / 数据库自增（选其一，项目统一）         |
-| 枚举比较    | `==` 比较，不用 `equals()`                                |
-| 字符串比较   | `"constant".equals(variable)`，常量在前防NPE               |
-| 工具类     | 推进使用`Hutool`工具类                                      |
+| 对象拷贝    | `MapStruct`（推荐，类型安全）                                   |
+| 唯一ID生成  | 雪花算法 / `UUID.randomUUID()` / 数据库自增（选其一，项目统一） |
+| 枚举比较    | `==` 比较，不用 `equals()`                                      |
+| 字符串比较   | `"constant".equals(variable)`，常量在前防NPE                    |
+| 工具类     | 推荐使用`Hutool`工具类                                          |
