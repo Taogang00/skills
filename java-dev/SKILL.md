@@ -1,8 +1,8 @@
 ---
 name: java-dev
-description: 为 Guanwei Java/Spring Boot 后端项目提供代码编写、重构和审查规范。项目使用 guanwei-* Starter、com.guanwei 包名，或用户明确要求遵循本规范时使用。普通 Java 教学、非 Guanwei 项目及其他技术栈不应套用公司专属约定。
+description: 按 Guanwei 公司约定编写、重构和审查 Java/Spring Boot 后端代码。当项目使用 guanwei-* Starter、com.guanwei 包名，或用户明确要求遵循 Guanwei 规范时使用；普通 Java 问答、教学、算法题及非 Guanwei 项目不应触发。
 metadata:
-  version: 1.0.4
+  version: 1.0.5
   author: TaoGang
 ---
 
@@ -31,19 +31,136 @@ metadata:
 - MapStruct，DTO、VO、Entity 对象转换框架
 
 ### 1.2 公司自定义封装的springboot starter 说明
-- guanwei-boot-starter-toi 封装了针对运政业务的feign调用，方便各个业务模块进行调用。
-- guanwei-boot-starter-workflow 封装了开发者公司工作流的使用。
-- guanwei-boot-starter-mybatis 针对MyBatisPlus进行数据库操作，提供基础的增删改查、sql执行打印、分页插件封装、分页结果封装。
-- guanwei-boot-starter-json 针对Fastjson封装，支持json转换、数据脱敏`@Sensitive`、数据加密`@BootEncResult`、枚举字段序列化转义`@EnumDescribe`。
-- guanwei-boot-starter-token-core 提供jwt、jws、jwe、rsa非对称加密的token生成、token解析、token校验功能，接口token鉴权使用`@BootToken`，接口不需要token鉴权使用`@BootNonToken`。
-- guanwei-boot-starter-token 提供`guanwei-boot-starter-token-core` 与`spring-boot-starter-web`进行整合，对接口进行token校验。
-- guanwei-boot-starter-diff 提供对象的比对功能。
-- guanwei-boot-starter-err 全局统一异常处理。
-- guanwei-boot-starter-feign  提供feign远程调用与guanwei-boot 框架的整合。
-- guanwei-boot-starter-s3  提供s3与guanwei-boot 框架的整合。
-- guanwei-boot-starter-s3-web  提供s3与`spring-boot-starter-web` 框架的整合。
-- guanwei-boot-starter-xxljob  提供xxljob与guanwei-boot 框架的整合。
-- guanwei-boot-starter-sse 提供sse与guanwei-boot 框架的整合。
+#### 1.2.1. guanwei-boot-starter（核心启动器）
+- **作用**：所有应用的基础依赖。注册 `/health` 健康检查接口；启动成功时打印访问地址横幅（含端口、路径、构建时间、Boot 版本）；提供 `ApplicationContextHolder` 上下文持有器与公共线程池。
+- **核心类**：`com.guanwei.core.StarterAutoConfiguration`、`SuccessApplicationRunner`、`ApplicationContextHolder`、`HealthInfoHandler`
+- **配置**：`StarterProperties`（如 `guanwei.starter.print-banner` 控制横幅打印）
+- **依赖**：无（最底层，其他组件均依赖它）
+
+#### 1.2.2. guanwei-boot-starter-authorize（接口权限校验）
+- **作用**：通过 `@BootAuthorize` 注解声明接口所需权限，由 AOP 切面统一拦截校验，未授权时抛出异常。支持自定义匹配服务扩展校验逻辑。
+- **核心类/注解**：`@BootAuthorize`、`BootAuthorizeInterceptor`、`BootAuthorizePointcutAdvisor`、`BootMatchInterceptorService`
+- **配置**：`guanwei.authorize.*`；同时关闭了 URL 尾斜杠匹配（`setUseTrailingSlashMatch(false)`）
+
+#### 1.2.3. guanwei-boot-starter-dbdriver（数据库驱动聚合）
+- **作用**：纯依赖聚合模块，统一引入主流及国产数据库驱动，无需业务方各自维护驱动版本。
+- **包含驱动**：MySQL、Oracle（ojdbc11 + orai18n）、SQL Server、PostgreSQL、Vastbase（海量数据库）、Kingbase（人大金仓）、达梦（DmJdbcDriver11）
+- **配置**：无，仅按需引入对应 `runtime` 驱动
+
+#### 1.2.4. guanwei-boot-starter-diff（对象差异比对）
+- **作用**：对修改前后的实体对象做字段级差异比对，常用于生成变更记录/审计日志。支持 `@DiffLog` 注解控制字段中文名、自定义解析函数、日期格式化与忽略字段。
+- **核心类/注解**：`@DiffLog`、`DiffObjectService`、`DiffParseFunctionFactory`、`DiffParseFunctionService`
+- **配置**：无
+
+#### 1.2.5. guanwei-boot-starter-err（全局异常处理）
+- **作用**：`@RestControllerAdvice` 统一兜底处理业务/系统/参数校验/类型转换/文件上传等各类异常，输出统一响应结构；内置 8 位错误码体系（2 位系统 + 2 位子系统 + 4 位错误码）与错误调用日志上报。
+- **核心类**：`ErrorAutoConfiguration`、`StatusCode`（枚举接口）、`SystemException`/`NoStackBizException`、`ErrorCallLogMessageService`
+- **配置**：`guanwei.err.enabled`（默认开启）、`ErrorProperties`
+- **依赖**：`guanwei-boot-starter`（使用其 `R` 统一响应）
+
+#### 1.2.6. guanwei-boot-starter-feign（Feign 增强）
+- **作用**：为 OpenFeign 调用提供指标统计拦截器（Redis 计数）、失败重试（默认最多 5 次，1.5 倍退避）、token 透传缓存及熔断器配置。
+- **核心类**：`FeignAutoConfiguration`、`MetricRequestInterceptor`、`RedisTokenCacheImpl`、`FeignCircuitBreakerFactory`/`FeignCircuitConfigBuilder`
+- **配置**：`guanwei.feign.enabled`；启动时校验 `spring.cloud.openfeign.circuitbreaker.enabled=true` 与 `disable-ssl-validation=true`
+- **依赖**：`guanwei-boot-starter-web`（`TokenCache`）、`guanwei-boot-starter-redis`
+
+#### 1.2.7. guanwei-boot-starter-json（JSON 序列化）
+- **作用**：用 fastjson2 的 `FastJsonHttpMessageConverter` 替换默认 Jackson 消息转换器；提供 `@Sensitive` 字段脱敏注解（策略化脱敏、条件生效、可附加加密字段）。
+- **核心类/注解**：`FastjsonAutoConfiguration`、`@Sensitive`、`SensitiveStrategy`
+- **配置**：`guanwei.json.enabled`（默认开启）、`FastjsonProperties`（reader/writer Features、转换器打印开关）
+
+#### 1.2.8. guanwei-boot-starter-limit（接口限流）
+- **作用**：`@RateLimit` 注解实现本地令牌桶限流（Guava RateLimiter），支持类/方法两级标注，方法级覆盖类级；限流 key 基础维度为 URL + HTTP 方法，可追加 SpEL 表达式维度（入参、请求头、PathVariable、RequestBody、Bean 属性等）实现"按用户/按接口"精细化限流。
+- **核心类/注解**：`@RateLimit`、`RateLimitMethodInterceptor`、`SpelKeyResolver`、`LocalRateLimiter`
+- **配置**：`guanwei.limit.default-qps`（默认 QPS）
+- **注意**：本地限流，多实例部署时每实例独立计数，非集群总量
+
+#### 1.2.9. guanwei-boot-starter-log（操作日志）
+- **作用**：`@BootLog` 注解标注在方法上，记录操作描述与所属模块，配合 AOP 输出操作日志。
+- **核心注解**：`@BootLog`（属性：`value` 操作描述、`model` 模块编号）
+- **配置**：`guanwei.log.*`
+
+#### 1.2.10. guanwei-boot-starter-mapstruct（映射工具聚合）
+- **作用**：纯依赖聚合模块，引入 MapStruct 1.6.3 及 `lombok-mapstruct-binding`，解决 Lombok 与 MapStruct 注解处理器冲突问题。
+- **配置**：无
+
+#### 1.2.11. guanwei-boot-starter-mybatis（MyBatis 增强）
+- **作用**：整合 MyBatis-Plus 与 MyBatis-Plus-Join（MPJ），提供自定义分页拦截器、SQL 打印拦截器（含参数、耗时、执行策略）；分页结果自动包装为统一结构；通配符（`%`、`_`）自动转义防注入；内置 BaseController / MBaseMapper / MBaseService 等基类简化开发。
+- **核心类**：`MybatisAutoConfiguration`、`MybatisPaginationInterceptor`、`MybatisPrintSqlInterceptor`、`PageResultResponseBodyAdvice`、`EscapeWildcardBinderAdvice`、`MBaseMapper`/`MBaseService`/`MBaseController`
+- **配置**：`guanwei.mybatis.*`（如 `print-sql`）
+- **依赖**：`guanwei-boot-starter`
+
+#### 1.2.12. guanwei-boot-starter-mybatis-mapstruct（整合模块）
+- **作用**：MyBatis 与 MapStruct 的整合依赖聚合，便于 Entity/BO/VO 映射与持久层配合使用。
+- **配置**：无
+- **依赖**：`guanwei-boot-starter-mybatis`、`guanwei-boot-starter-mapstruct`
+
+#### 1.2.13. guanwei-boot-starter-psp（PSP 平台对接）
+- **作用**：PSP 开放平台 token 鉴权拦截器，基于 token-core 校验 PSP 平台下发的 token，并将账号信息放入 `PspAccountContextHolder` 供业务读取。
+- **核心类**：`PspAutoConfiguration`、`PspTokenInterceptor`、`PspAccountContextHolder`/`PspAccountInfo`
+- **配置**：`guanwei.psp.enabled`（默认开启）、`PspTokenProperties`（include/exclude URL）
+- **依赖**：`guanwei-boot-starter-token-core`
+
+#### 1.2.14. guanwei-boot-starter-redis（Redis 缓存）
+- **作用**：开启 `@EnableCaching`，自定义 `RedisCacheManager` 与 `RedisTemplate`，序列化采用 fastjson2（`GenericFastJsonRedisSerializer`），替代默认 JDK 序列化。
+- **核心类**：`RedisCacheAutoConfiguration`
+- **配置**：`guanwei.redis.enabled`（默认开启）、`RedisProperties`
+
+#### 1.2.15. guanwei-boot-starter-s3（S3 对象存储）
+- **作用**：封装 AWS SDK 的 S3 客户端，提供按日期目录上传（字节/流/Base64）、下载、生成预览地址与签名 URL 等能力。
+- **核心类**：`AmazonS3AutoConfiguration`、`AmazonS3PutObjectService`、`AmazonS3GetUrlService`
+- **配置**：`guanwei.s3.*`（endpoint、accessKey、secretKey、bucket、预览地址）
+
+#### 1.2.16. guanwei-boot-starter-s3-web（S3 Web 端点）
+- **作用**：暴露文件上传 REST 接口（`POST /v1/upload` 单文件、多文件等），返回上传后的访问地址。
+- **核心类**：`AmazonS3WebPutObjectEndPoint` 等 endpoint
+- **配置**：`guanwei.s3.enabled-end-point`（默认开启）
+- **依赖**：`guanwei-boot-starter-s3`
+
+#### 1.2.17. guanwei-boot-starter-seata（分布式事务）
+- **作用**：Seata AT 模式分布式事务接入，自动注册事务上下文传递的拦截器：RestTemplate 拦截器 + Servlet Filter（HTTP 链路），以及 gRPC 客户端/服务端全局拦截器（gRPC 链路）。
+- **核心类**：`SeataAtAutoConfiguration`、`SeataRestTemplateInterceptor`、`SeataFilter`、`Client/ServerTransactionGrpcInterceptor`
+- **配置**：`seata.enabled`（默认开启）
+- **注意**：仅当 classpath 存在对应依赖（RestTemplate / gRPC）时相应拦截器才生效
+
+#### 1.2.18. guanwei-boot-starter-sse（SSE 推送服务）
+- **作用**：增强版 SSE 服务，支持按业务类型管理连接、连接数限制、心跳保活、连接关闭清理（幂等）、基于 Redis 的跨实例消息广播与多实例订阅。
+- **核心类**：`SseService`、`SseAutoConfiguration`、`SseMessageModel`
+- **配置**：`guanwei.sse.*`（心跳间隔、业务类型、连接上限等）
+- **依赖**：`guanwei-boot-starter-redis`
+
+#### 1.2.19. guanwei-boot-starter-swagger（API 文档）
+- **作用**：基于 Springfox 的 Swagger 3 自动配置，统一生成 `Docket`（扫描包、分组、全局参数等）。
+- **核心类**：`SwaggerAutoConfiguration`、`Swagger3Factory`、`Swagger3PropertiesConfig`
+- **配置**：`guanwei.swagger.enabled`（默认开启）、`Swagger3PropertiesConfig`
+
+#### 1.2.20. guanwei-boot-starter-token-core（Token 核心）
+- **作用**：基于 Nimbus JOSE + JWT 的 token 工具，支持 JWS（RSA 签名验证）与 JWE（AES 加密解密）；区分"系统 token"与"开放平台 token"双通道，提供签发、校验、解析、刷新等能力。构造失败会终止应用启动（fail-fast）。
+- **核心类**：`TokenCoreAutoConfiguration`、`TokenCoreService`、`RSAPublicKeyService`、`TokenCoreProperties`
+- **配置**：`guanwei.token.core.*`（RSA 公钥来源、AES 加解密密钥、是否启用开放平台通道）
+
+#### 1.2.21. guanwei-boot-starter-token（Token Web 集成）
+- **作用**：基于 token-core 的 Web 层登录态集成：`JwtAuthTokenInterceptor` 拦截请求校验 token、解析用户/账号信息；`TokenWebService` 提供签发/刷新 token；`AccessContextHolder` 供业务代码随时获取当前登录用户。
+- **核心类**：`TokenAutoConfiguration`、`JwtAuthTokenInterceptor`、`TokenWebService`、`AccessContextHolder`、`UserInfo`/`AccountInfo`
+- **配置**：`guanwei.token.*`
+- **依赖**：`guanwei-boot-starter-token-core`、`guanwei-boot-starter-web`
+
+#### 1.2.22. guanwei-boot-starter-validator（参数校验）
+- **作用**：基于 Bean Validation 扩展的业务校验注解，开箱即用。
+- **核心注解**：`@IsPhone`（手机号）、`@IsIdCard`（身份证号）、`@IsEmail`（邮箱）、`@IsPlateNum`（车牌号）
+- **配置**：无
+
+#### 1.2.23. guanwei-boot-starter-web（Web 基础）
+- **作用**：提供 `TokenRestTemplate`（内置 token 透传拦截器 `WebRestTemplateInterceptor`，支持连接/读取超时配置）；`TokenCache` 本地 token 缓存；开启 `@EnableAsync` 异步支持。
+- **核心类**：`WebAutoConfiguration`、`TokenRestTemplate`、`WebRestTemplateInterceptor`、`TokenCache`
+- **配置**：`guanwei.web.*`（connectTimeout、readTimeout）
+- **依赖**：`guanwei-boot-starter`
+
+#### 1.2.24. guanwei-boot-starter-xxljob（任务调度）
+- **作用**：XXL-JOB 执行器自动配置，注册 `XxlJobSpringExecutor`，从配置读取调度中心地址、执行器 AppName/IP/端口/日志路径等。
+- **核心类**：`XxlJobAutoConfiguration`、`XxlJobProperties`
+- **配置**：`guanwei.xxljob.enabled`（默认开启）、`XxlJobProperties`（admin 地址、executor 各项）
+
 
 ## 二、一级军规
 
@@ -61,7 +178,7 @@ metadata:
 - 所有Controller层禁止直接返回数据库Entity对象，Controller层必须使用DTO对象作为返回体。
 - 除Controller层和Feign接口外，其他方法禁止使用`com.guanwei.core.utils.result.R<T>`作为返回体，应直接返回明确的领域类型。
 - 所有的分页查询对象必须继承`com.guanwei.core.utils.page.PageQuery`，类名使用类似XxxPageQuery，体现该类分页的职能。
-- 简单的单表，联表查询使用MybatisPlus+MybatisPlusJoin 实现即可，不需要自定义Mapper接口和写xml映射文件，减少冗余代码。
+- 简单的单表，联表查询使用MybatisPlus+MybatisPlusJoin 实现即可。
 - 对于单表操作，Service接口继承`com.guanwei.mybatis.base.service.MBaseService<Entity>`；对应实现类继承`com.guanwei.mybatis.base.service.MBaseServiceImpl<Mapper, Entity>`并实现该Service接口。
 - 对于单表操作，Mapper接口继承`com.guanwei.mybatis.base.mapper.MBaseMapper<Entity>`。
 - 项目中只需要定义DTO类，禁止定义VO、BO等其他对象；接口请求使用`XxxFormDTO`，响应使用`XxxViewDTO`，具体约束见下文“FormDTO 与 ViewDTO 约束”。
@@ -775,7 +892,7 @@ log.info("支付信息: cardNo={}", cardNo); // 银行卡号禁止输出
 | 字符串判空   | `EmptyUtil.isNotEmpty()`，禁用 `== null \|\| isEmpty()`         |
 | 集合判空    | `EmptyUtil.isEmpty()`，禁用 `== null \|\| size() == 0`          |
 | JSON序列化 | `Fastjson2`（统一项目内使用同一框架）                           |
-| HTTP客户端 | `RestTemplate`（同步）/ `WebClient`（响应式/异步）              |
+| HTTP客户端 | `RestClient`（同步）/ `WebClient`（响应式/异步）              |
 | 对象拷贝    | `MapStruct`（推荐，类型安全）                                   |
 | 唯一ID生成  | 雪花算法 / `UUID.randomUUID()` / 数据库自增（选其一，项目统一） |
 | 枚举比较    | `==` 比较，不用 `equals()`                                      |
