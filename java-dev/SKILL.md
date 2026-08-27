@@ -373,7 +373,171 @@ com.guanwei.tles.oles.warning.utils
 - 方法参数逗号后加空格：`method(a, b, c)`。
 - 类型强转后加空格：`(String) object`。
 
-### 4.3 注释规范
+## 五、注释规范
+
+> 目标是： 注释提供代码本身无法直接表达的信息，优先解释 Why，而不是重复 What。
+
+
+### 5.1. 基本原则
+1.    不为注释而注释。
+
+2.    能通过清晰命名表达的内容，不额外写注释。
+3.    注释必须与代码保持一致。
+4.    修改代码后同步检查相关注释是否需要更新。
+5.    禁止保留已经失效、误导性的注释。
+6.    优先解释业务规则、设计原因、特殊限制和非显而易见的处理逻辑。
+
+### 5.2. Javadoc 使用场景
+
+以下内容建议使用 `/** */`：
+
+- 公共 Service 接口
+- 公共 API
+- 公共组件
+- 工具类
+- 枚举
+- DTO / VO 中含义不明确的字段
+- 复杂业务方法
+- 对外提供的 public 方法
+
+示例：
+
+```
+/**
+ * 提交驾驶员竞赛报名。
+ *
+ * @param request 报名信息
+ * @return 报名结果
+ * @throws BizException 不满足报名条件时抛出
+ */
+public ApplyResult apply(ApplyRequest request) {
+}
+```
+
+简单 getter、setter、构造方法和含义明显的 private 方法不强制写 Javadoc。
+
+### 5.3. 行内注释
+
+行内注释重点解释“为什么这样做”。
+
+不推荐：
+
+```
+// 查询用户
+User user = userService.getById(id);
+```
+
+推荐：
+
+```
+// 竞赛资格审核必须使用首次实名认证资料，后续修改的数据不参与判断
+User user = userService.getById(id);
+```
+
+对于特殊逻辑、兼容代码、临时方案、性能折中，应说明原因。
+
+### 5.4. DTO / Entity 字段注释
+
+字段名称无法完整表达业务含义时，应增加注释。
+
+```
+/**
+ * 报名状态：0-待审核，1-通过，2-驳回。
+ */
+private Integer status;
+```
+
+如果已有枚举，优先引用枚举，避免重复维护状态说明。
+
+```
+/**
+ * 报名状态。
+ *
+ * @see ApplyStatus
+ */
+private Integer status;
+```
+
+### 5.5. TODO / FIXME
+
+TODO 必须说明后续动作或产生原因及负责人。
+
+推荐：
+
+```
+// TODO 接入统一用户中心后删除本地用户查询逻辑
+// TODO(张三): 待接入第三方支付后移除此逻辑
+```
+
+更推荐关联任务编号：
+
+```
+// TODO TLES-1024 接入统一用户中心后删除
+```
+
+禁止：
+
+```
+// TODO 优化
+// TODO 待处理
+```
+
+`FIXME` 用于已知存在问题但当前暂未修复的代码：
+
+```
+// FIXME 并发情况下可能重复创建，需要增加唯一约束
+```
+
+### 5.6. 禁止无意义注释
+
+禁止出现重复代码语义的注释：
+
+```
+// 判断用户是否为空
+if (user == null) {
+
+    // 抛出异常
+    throw new BizException("用户不存在");
+}
+```
+
+应直接写：
+
+```
+if (user == null) {
+    throw new BizException("用户不存在");
+}
+```
+
+### 5.7. 注释评审规则
+
+评审代码时重点检查：
+
+- 是否存在过期注释
+- 注释是否与实际逻辑不一致
+- 是否缺少关键业务规则说明
+- 是否存在大量重复代码语义的无价值注释
+- TODO / FIXME 是否明确
+- public API 的 Javadoc 是否准确
+- 参数、返回值和异常描述是否与实现一致
+
+不要仅因为“没有注释”就要求补注释。
+
+只有当注释能够明显提升理解成本、表达业务规则或说明设计原因时，才建议增加。
+
+### 5.8. 核心判断标准
+
+始终遵循：
+
+> 代码说明做了什么，注释说明为什么这么做。
+
+好的注释应该让后续维护人员理解：
+
+- 为什么存在这段代码
+- 为什么不能采用更直观的写法
+- 背后的业务规则是什么
+- 有什么特殊限制或历史原因
+
 ```java
 /**
  * 类级别注释：描述类的职责与用途。
@@ -400,15 +564,11 @@ public class OrderService {
 }
 ```
 
-**注释原则：**
-- 所有的类、属性、方法需要添加注释
-- TODO 注释须写明原因及负责人：`// TODO(张三): 待接入第三方支付后移除此逻辑`
-
 ---
 
-## 五、面向对象设计规范
+## 六、面向对象设计规范
 
-### 5.1 类设计
+### 6.1 类设计
 ```java
 // ✅ 推荐：使用 Lombok 减少样板代码
 @Data
@@ -426,7 +586,7 @@ public class UserViewDTO {
 private boolean deleted = false; // 不应在POJO中设置默认值
 ```
 
-### 5.2 接口与实现分离
+### 6.2 接口与实现分离
 ```java
 // ✅ 接口定义行为
 public interface PaymentService {
@@ -447,7 +607,7 @@ public class AlipayServiceImpl implements PaymentService {
 }
 ```
 
-### 5.3 禁止使用魔法值
+### 6.3 禁止使用魔法值
 ```java
 // ❌ 错误：魔法数字与魔法字符串
 if (user.getStatus() == 1) { ... }
@@ -461,9 +621,9 @@ if (EnumUserRole.ADMIN.name().equals(user.getRole())) { ... }
 ---
 
 
-## 六、并发与线程安全
+## 七、并发与线程安全
 
-### 6.1 线程池规范
+### 7.1 线程池规范
 ```java
 // ✅ 使用ThreadPoolExecutor，禁止使用Executors工厂方法
 // Executors.newFixedThreadPool 使用无界队列，可能导致OOM
@@ -497,7 +657,7 @@ public class AsyncConfig {
 }
 ```
 
-### 6.2 线程安全
+### 7.2 线程安全
 ```java
 // ✅ 优先使用并发容器
 ConcurrentHashMap<String, Object> concurrentMap = new ConcurrentHashMap<>();
@@ -526,9 +686,9 @@ DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
 
 ---
 
-## 七、日志规范
+## 八、日志规范
 
-### 7.1 基本规则
+### 8.1 基本规则
 ```java
 @Slf4j // Lombok注解，自动生成 log 变量
 public class OrderService {
@@ -552,7 +712,7 @@ public class OrderService {
 }
 ```
 
-### 7.2 日志内容规范
+### 8.2 日志内容规范
 ```java
 // ✅ 关键业务节点必须打印日志
 log.info("[支付] 发起支付请求, orderId={}, amount={}, channel={}", orderId, amount, channel);
@@ -568,7 +728,7 @@ log.info("支付信息: cardNo={}", cardNo); // 银行卡号禁止输出
 
 ---
 
-## 八、代码审查检查清单
+## 九、代码审查检查清单
 
 在提交代码前，自查以下各项：
 
@@ -607,7 +767,7 @@ log.info("支付信息: cardNo={}", cardNo); // 银行卡号禁止输出
 
 ---
 
-## 九、快速参考
+## 十、快速参考
 
 | 场景      | 推荐方案                                                        |
 |---------|-----------------------------------------------------------------|
